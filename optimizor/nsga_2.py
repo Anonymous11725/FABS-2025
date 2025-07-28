@@ -1,9 +1,3 @@
-"""
-Author: Bhargav D V, Research Scholar, IIITB, under guidance of Prof. Madhav Rao.
-Complete PE Configuration Optimization Framework using NSGA-II
-This integrates the genetic algorithm with PE configuration evaluation for neural networks.
-"""
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -36,11 +30,11 @@ GENERATIONS = 50
 SEED = 42
 MUTATION_RATE = 0.15
 NUM_PES = 25  # Number of Processing Elements
-EVAL_SAMPLES = 1000  # Number of samples to evaluate for each configuration
+EVAL_SAMPLES = 1000  
 #----------------------- Configuration Variables --------------------------#
 
 # Global variables
-pool = ThreadPool(4)  # Increased thread pool size
+pool = ThreadPool(4) 
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -81,15 +75,11 @@ def booth_mult_with_pe_config(A, B, pp0_variant, pp1_variant, pp2_variant, pp3_v
     Booth multiplier with configurable variants for each partial product
     Variants: 0=Exact, 1=Approx1, 2=Approx2, 3=Approx3
     """
-    # print("inside pe config booth multiplier")
-    # Clip inputs to 8-bit signed range
+
     A = max(-128, min(127, A))
     B = max(-128, min(127, B))
 
-    # A = sign_extend(A, 8)
-    # B = sign_extend(B, 8)
 
-    # print(A, B)
     # Sign extend
     if A >= 128:
         A = A - 256
@@ -116,7 +106,7 @@ def booth_mult_with_pe_config(A, B, pp0_variant, pp1_variant, pp2_variant, pp3_v
                 PP = A << 1
             elif code == 4:
                 PP = -(A << 1)
-            else:  # code == 5 or code == 6
+            else:  
                 PP = -A
         
         elif variant == 1:  # Approximation 1
@@ -155,7 +145,6 @@ def booth_mult_with_pe_config(A, B, pp0_variant, pp1_variant, pp2_variant, pp3_v
         block >>= 2
 
     return Product
-    # return int(Product)
 
 @jit(nopython=True, parallel=True, cache=True)
 def vectorized_booth_conv_with_pe(input_matrix, kernel, pe_variants, stride=1, padding=0):
@@ -168,7 +157,7 @@ def vectorized_booth_conv_with_pe(input_matrix, kernel, pe_variants, stride=1, p
     output_matrix = np.zeros((output_height, output_width), dtype=np.int32)
     
     pp0_var, pp1_var, pp2_var, pp3_var = pe_variants
-    # print(pp0_var, pp1_var, pp2_var, pp3_var)
+
     for i in prange(output_height):
         for j in prange(output_width):
             # acc = 0
@@ -289,9 +278,6 @@ def setup_global_data():
     # Setup model
     global_model = LeNet5()
     
-    # If you have a trained model, load it here:
-    # global_model.load_state_dict(torch.load("lenet5_mnist.pth", map_location="cpu"))
-    
     global_model.eval()
     global_weights = preprocess_model_weights(global_model)
     
@@ -306,14 +292,11 @@ def generate_verilog_from_combs(comb_list):
     assert len(comb_list) == 25, "Expected exactly 25 comb values"
 
     param_lines = []
-    # for i, comb in enumerate(comb_list):
-    #     param_lines.append(f"    parameter [7:0] comb{i} = {comb},")
-    # param_block = "\n".join(param_lines).rstrip(",")
 
     for i, comb in enumerate(comb_list):
-        # print(comb_list,i)
+
         value = (int(comb[3]) << 6) | (int(comb[2]) << 4) | (int(comb[1]) << 2) | int(comb[0])
-        # print(value)
+
         param_lines.append(f"    parameter [7:0] comb{i} = 8'b{value:08b},")
     param_block = "\n".join(param_lines).rstrip(",")
 
@@ -1714,8 +1697,7 @@ def evaluate_pe_configuration(pe_config_list, sample_limit=None):
     pe_config_obj = PEConfig(pe_config_list)
     correct = 0
     total = 0
-    # print(pe_config_list)
-    # Calculate approximate metrics
+
     total_operations = 0
     exact_operations = 0
     
@@ -1723,11 +1705,11 @@ def evaluate_pe_configuration(pe_config_list, sample_limit=None):
 
     generate_verilog_from_combs(pe_config_list)
 
-    # run_genus()
+    run_genus()
 
-    # area_score = parse_area() or 1.0  # fallback if parsing fails
-    # power_score = parse_power() or 1.0
-    # delay_score = parse_timing() or 0.0
+    area_score = parse_area() or 1.0  # fallback if parsing fails
+    power_score = parse_power() or 1.0
+    delay_score = parse_timing() or 0.0
     
     with torch.no_grad():
         for i, (image, label) in enumerate(global_dataloader):
@@ -1747,12 +1729,6 @@ def evaluate_pe_configuration(pe_config_list, sample_limit=None):
                 kernel = global_weights['conv1_w_q'][ch, 0]
                 pe_variants = pe_config_obj.get_pe_variants(pe_index % pe_config_obj.num_pes)
                 pe_index += 1
-                
-                # Count operations
-                # ops_this_layer = kernel.size
-                # total_operations += ops_this_layer
-                # exact_operations += sum([1 for v in pe_variants if v == 0]) * (ops_this_layer // 4)
-                
                 conv_out = vectorized_booth_conv_with_pe(x, kernel, pe_variants, padding=2)
                 conv_out = (conv_out.astype(np.float32) * global_weights['conv1_scale'] + global_weights['conv1_b'][ch])
                 conv_out = np.maximum(conv_out, 0).astype(np.int32)
@@ -1769,12 +1745,6 @@ def evaluate_pe_configuration(pe_config_list, sample_limit=None):
                     kernel = global_weights['conv2_w_q'][ch, in_ch]
                     pe_variants = pe_config_obj.get_pe_variants(pe_index % pe_config_obj.num_pes)
                     pe_index += 1
-                    
-                    # Count operations
-                    # ops_this_layer = kernel.size
-                    # total_operations += ops_this_layer
-                    # exact_operations += sum([1 for v in pe_variants if v == 0]) * (ops_this_layer // 4)
-                    
                     partial = vectorized_booth_conv_with_pe(conv1_out[in_ch], kernel, pe_variants, padding=0)
                     acc += partial
                 
@@ -1794,17 +1764,8 @@ def evaluate_pe_configuration(pe_config_list, sample_limit=None):
                 correct += 1
             total += 1
     
-    # generate_verilog_from_combs(pe_config_list)
 
     accuracy = correct / total if total > 0 else 0.0
-    # exact_ratio = exact_operations / total_operations if total_operations > 0 else 0.0
-    
-    # Calculate approximate power and area (these are estimates)
-    # In practice, you would have detailed hardware models
-    # power_score = 1.0 - (exact_ratio * 0.7)  # Less exact = less power
-    # area_score = 1.0 - (exact_ratio * 0.5)   # Less exact = less area
-    
-    # return accuracy, power_score, area_score, delay_score
     return accuracy, 0, 0, 0
 
 
@@ -1881,18 +1842,6 @@ class PEConfigProblem(Problem):
         
         # Evaluate the configuration
         accuracy, power, area, delay = evaluate_pe_configuration(pe_config, sample_limit=EVAL_SAMPLES)
-
-        # save_design_results(gen_id, design_id, pe_config)
-
-        # result_list.append({
-        #     "design_id": design_id,
-        #     "accuracy": accuracy,
-        #     "power": power,
-        #     "area": area
-        # })
-
-        # save_generation_config(gen_id, population_X)
-        # log_generation_summary(gen_id, result_list)
         
         return accuracy, power, area, delay
 
